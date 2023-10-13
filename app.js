@@ -2,6 +2,8 @@
 require('dotenv').config();
 // Logging
 const winston = require('winston');
+// HTTP
+const express = require('express'); 
 
 /*
  * Configuration
@@ -16,6 +18,8 @@ const API_KEY = process.env.API_KEY;
 const NUM_EVENTS_TO_FETCH = process.env.NUM_EVENTS_TO_FETCH || 10;
 // Logging verbosity, default to "info" (which is quiet as to not pollute server logs; "verbose" is where we send event output)
 const LOG_VERBOSITY = process.env.LOG_VERBOSITY || "info";
+// HTTP Port to listen on; default to 3000
+const HTTP_PORT = process.env.HTTP_PORT || 3000;
 
 /*
  * Set up logging
@@ -36,6 +40,26 @@ const logger = winston.createLogger({
 var calendarEvents;
 
 /*
+ * Set up HTTP Server
+ */
+const app = express(); 
+
+app.listen(HTTP_PORT, (error) =>{ 
+  if(!error) {
+    logger.info("Server running on port: " + HTTP_PORT);
+    // Cache the first events after server startup
+    cacheEvents();
+  }
+  else 
+    logger.error("Error in starting HTTP Server", error); 
+  } 
+);
+app.get('/events', (request, response)=>{ 
+  response.status(200); 
+  response.send(JSON.stringify(getEvents())); 
+}); 
+
+/*
  * Precondition checks
  */
 if (CALENDAR_ID === undefined) {
@@ -51,6 +75,31 @@ const cal = google.calendar({
   version: 'v3',
   auth: API_KEY
 });
+
+/**
+ * Returns the array of calendar events; if not yet defined, attains these and caches them
+ * 
+ * @returns The array of calendar events
+ */
+function getEvents(){
+  if(calendarEvents === undefined){
+    cacheEvents();
+  }
+  return calendarEvents;
+}
+
+/**
+ * Fetch and cache the latest calendar events
+ */
+function cacheEvents() {
+  // Pre-fetch the first calendar events
+  fetchEvents().then(
+    response => {
+      calendarEvents = response;
+      logger.verbose(JSON.stringify(calendarEvents));
+    }
+  )
+}
 
 /**
  * Lists the upcoming events for CALENDAR_ID
@@ -98,11 +147,3 @@ async function fetchEvents() {
   });
   return calEvents;
 }
-
-// Fire away
-fetchEvents().then(
-  response => {
-    calendarEvents = response;
-    logger.verbose(JSON.stringify(calendarEvents));
-  }
-)

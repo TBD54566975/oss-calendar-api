@@ -22,6 +22,12 @@ const LOG_VERBOSITY = process.env.LOG_VERBOSITY || "info";
 const HTTP_PORT = process.env.HTTP_PORT || 3000;
 
 /*
+ * Constants
+ */
+const HEADER_CONTENT_TYPE = "Content-Type";
+const MIME_TYPE_JSON = "application/json";
+
+/*
  * Set up logging
  */
 const logger = winston.createLogger({
@@ -56,6 +62,7 @@ app.listen(HTTP_PORT, (error) =>{
 );
 app.get('/events', (request, response)=>{ 
   response.status(200); 
+  response.set(HEADER_CONTENT_TYPE, MIME_TYPE_JSON);
   response.send(JSON.stringify(getEvents())); 
 }); 
 

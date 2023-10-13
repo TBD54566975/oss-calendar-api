@@ -1,9 +1,9 @@
 // For reading in env vars from '.env' file
 require('dotenv').config();
-// Logging
-const winston = require('winston');
 // HTTP
 const express = require('express');
+// Logging
+const logger = require('pino')();
 
 /*
  * Configuration
@@ -16,7 +16,7 @@ const CALENDAR_ID = process.env.CALENDAR_ID;
 const API_KEY = process.env.API_KEY;
 // Number of events we'll fetch from the API; default to 10 if undefined
 const NUM_EVENTS_TO_FETCH = process.env.NUM_EVENTS_TO_FETCH || 10;
-// Logging verbosity, default to "info" (which is quiet as to not pollute server logs; "verbose" is where we send event output)
+// Logging verbosity, default to "info" (which is quiet as to not pollute server logs; "debug" is where we send event output)
 const LOG_VERBOSITY = process.env.LOG_VERBOSITY || "info";
 // HTTP Port to listen on; default to 3000
 const HTTP_PORT = process.env.HTTP_PORT || 3000;
@@ -30,17 +30,19 @@ const HEADER_CONTENT_TYPE = "Content-Type";
 const MIME_TYPE_JSON = "application/json";
 
 /*
- * Set up logging
+ * Precondition checks
  */
-const logger = winston.createLogger({
-  level: LOG_VERBOSITY,
-  format: winston.format.combine(winston.format.timestamp(), winston.format.simple()),
-  transports: [
-    new winston.transports.Console() //,
-    // If we want file-based logging
-    // new winston.transports.File({ filename: "logs/app.log" }),
-  ],
-});
+if (CALENDAR_ID === undefined) {
+  throw new Error("env var 'CALENDAR_ID' is required. Attain from Google Calendar > Calendar Settings > Integrate Calendar");
+}
+if (API_KEY === undefined) {
+  throw new Error("env var 'API_KEY' is required. Attain from Google Cloud Console > Google API > Credentials");
+}
+
+/* 
+ * Configure Logging
+ */
+logger.level = LOG_VERBOSITY;
 
 /* 
  * Hold the calendar events
@@ -50,35 +52,25 @@ var calendarEvents;
 /*
  * Set up HTTP Server
  */
-const app = express(); 
-app.listen(HTTP_PORT, (error) =>{ 
-  if(!error) {
+const app = express();
+app.listen(HTTP_PORT, (error) => {
+  if (!error) {
     logger.info("Server running on port: " + HTTP_PORT);
     // Cache the first events after server startup
     cacheEvents();
   }
-  else 
-    logger.error("Error in starting HTTP Server", error); 
-  } 
+  else
+    logger.error("Error in starting HTTP Server", error);
+}
 );
-app.get('/events', (request, response)=>{ 
-  response.status(200); 
+app.get('/events', (request, response) => {
+  response.status(200);
   response.set(HEADER_CONTENT_TYPE, MIME_TYPE_JSON);
-  response.send(getEvents()); 
-}); 
+  response.send(getEvents());
+});
 
 // Set up cache refresh
-setInterval(cacheEvents, SECONDS_BETWEEN_CACHE_REFRESH*1000);
-
-/*
- * Precondition checks
- */
-if (CALENDAR_ID === undefined) {
-  throw new Error("env var 'CALENDAR_ID' is required. Attain from Google Calendar > Calendar Settings > Integrate Calendar");
-}
-if (API_KEY === undefined) {
-  throw new Error("env var 'API_KEY' is required. Attain from Google Cloud Console > Google API > Credentials");
-}
+setInterval(cacheEvents, SECONDS_BETWEEN_CACHE_REFRESH * 1000);
 
 // Constants
 const { google } = require('googleapis');
@@ -92,8 +84,8 @@ const cal = google.calendar({
  * 
  * @returns The array of calendar events
  */
-function getEvents(){
-  if(calendarEvents === undefined){
+function getEvents() {
+  if (calendarEvents === undefined) {
     cacheEvents();
   }
   return calendarEvents;
@@ -107,7 +99,7 @@ function cacheEvents() {
   fetchEvents().then(
     response => {
       calendarEvents = response;
-      logger.verbose(JSON.stringify(calendarEvents));
+      logger.debug(JSON.stringify(calendarEvents));
       logger.info('Refreshed Cache');
     }
   )
@@ -130,10 +122,10 @@ async function fetchEvents() {
   });
   const events = res.data.items;
   if (!events || events.length === 0) {
-    logger.verbose('No upcoming events found.');
+    logger.debug('No upcoming events found.');
     return calEvents;
   }
-  logger.verbose('Next (max) ' + NUM_EVENTS_TO_FETCH + ' Events:');
+  logger.debug('Next (max) ' + NUM_EVENTS_TO_FETCH + ' Events:');
   events.map((event, i) => {
 
     // Hold the object
@@ -155,7 +147,7 @@ async function fetchEvents() {
       calEvent.start + "\nEnd: " +
       calEvent.end + "\nDescription: " +
       calEvent.description + "\n"
-    logger.verbose(eventDetail);
+    logger.debug(eventDetail);
   });
   return JSON.stringify(calEvents);
 }

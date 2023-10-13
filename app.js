@@ -3,7 +3,7 @@ require('dotenv').config();
 // Logging
 const winston = require('winston');
 // HTTP
-const express = require('express'); 
+const express = require('express');
 
 /*
  * Configuration
@@ -20,6 +20,8 @@ const NUM_EVENTS_TO_FETCH = process.env.NUM_EVENTS_TO_FETCH || 10;
 const LOG_VERBOSITY = process.env.LOG_VERBOSITY || "info";
 // HTTP Port to listen on; default to 3000
 const HTTP_PORT = process.env.HTTP_PORT || 3000;
+// Number of seconds between refreshing the cache
+const SECONDS_BETWEEN_CACHE_REFRESH = process.env.SECONDS_BETWEEN_CACHE_REFRESH || 60;
 
 /*
  * Constants
@@ -32,7 +34,7 @@ const MIME_TYPE_JSON = "application/json";
  */
 const logger = winston.createLogger({
   level: LOG_VERBOSITY,
-  format: winston.format.simple(),
+  format: winston.format.combine(winston.format.timestamp(), winston.format.simple()),
   transports: [
     new winston.transports.Console() //,
     // If we want file-based logging
@@ -49,7 +51,6 @@ var calendarEvents;
  * Set up HTTP Server
  */
 const app = express(); 
-
 app.listen(HTTP_PORT, (error) =>{ 
   if(!error) {
     logger.info("Server running on port: " + HTTP_PORT);
@@ -63,8 +64,11 @@ app.listen(HTTP_PORT, (error) =>{
 app.get('/events', (request, response)=>{ 
   response.status(200); 
   response.set(HEADER_CONTENT_TYPE, MIME_TYPE_JSON);
-  response.send(JSON.stringify(getEvents())); 
+  response.send(getEvents()); 
 }); 
+
+// Set up cache refresh
+setInterval(cacheEvents, SECONDS_BETWEEN_CACHE_REFRESH*1000);
 
 /*
  * Precondition checks
@@ -104,6 +108,7 @@ function cacheEvents() {
     response => {
       calendarEvents = response;
       logger.verbose(JSON.stringify(calendarEvents));
+      logger.info('Refreshed Cache');
     }
   )
 }
@@ -111,7 +116,7 @@ function cacheEvents() {
 /**
  * Lists the upcoming events for CALENDAR_ID
  *  
- * @return An array of calendar events, each event with fields: start, end, summary, hangoutLink, htmlLink, location, description
+ * @return An JSON representation of calendar events, each event with keys: start, end, summary, hangoutLink, htmlLink, location, description
  */
 async function fetchEvents() {
   const calendar = cal;
@@ -152,5 +157,5 @@ async function fetchEvents() {
       calEvent.description + "\n"
     logger.verbose(eventDetail);
   });
-  return calEvents;
+  return JSON.stringify(calEvents);
 }

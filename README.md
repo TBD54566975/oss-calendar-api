@@ -1,38 +1,61 @@
-# $PROJECT_NAME README
+# Google Calendar Fetch Events API
 
-Congrats, project leads! You got a new project to grow!
+This service is a simple indirection between a client and the Google Calendar API. It 
+abstracts the calls to Google Calendar (and the secrets to call it) away from clients. 
+Additionally, it caches events so that we may limit calls from clients to the Google 
+Calendar API.
 
-This stub is meant to help you form a strong community around your work. It's yours to adapt, and may 
-diverge from this initial structure. Just keep the files seeded in this repo, and the rest is yours to evolve! 
+This service returns a JSON representation of a configurable max number of upcoming events.
+Those events are stored in a cache with simple time-based expiry, and will refresh from the 
+Google Calendar API every configurable number of minutes. The JSON format returned for events is:
 
-## Introduction
+```
+[
+  {
+    "start": "2023-10-17T10:30:00-07:00",
+    "end": "2023-10-17T11:00:00-07:00",
+    "summary": "Meeting Summary",
+    "htmlLink": "HTTP link to the event on Google Calendar",
+    "location": "Location"
+    "description" : "Description of the event"
+  }
+]
+```
 
-Orient users to the project here. This is a good place to start with an assumption
-that the user knows very little - so start with the Big Picture and show how this
-project fits into it. It may be good to reference/link the broader architecture in the
-`collaboration` repo or the developer site here.
+While designed to surface events from the TBD Open Source Calendar on TBD websites, this
+API will work for any Google Calendar for which you have an API Key and the Calendar ID.
 
-Then maybe a dive into what this project does.
+## Building
 
-Diagrams and other visuals are helpful here. Perhaps code snippets showing usage.
+### Configuration
 
-Project leads should complete, alongside this `README`:
-* [CODEOWNERS](./CODEOWNERS) - set project lead(s)
-* [CONTRIBUTING.md](./CONTRIBUTING.md) - Fill out how to: install prereqs, build, test, run, access CI, chat, discuss, file issues
-* [Bug-report.md](.github/ISSUE_TEMPLATE/bug-report.md) - Fill out `Assignees` add codeowners @names
-* [config.yml](.github/ISSUE_TEMPLATE/config.yml) - remove "(/add your discord channel..)" and replace the url with your Discord channel if applicable
+Copy the configuration file `.env.example` to `.env`. Fill in parameters as documented in 
+the environment file. Some defaults are supplied, and others for security reasons you'll need
+to attain from either the Google Calendar API console, the Google Calendar Console, or, in the 
+case of TBD private assets (like the TBD Open Source Calendar), a TBD employee if you are also a 
+TBD employee. 
 
-The other files in this template repo may be used as-is:
-* [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
-* [GOVERNANCE.md](./GOVERNANCE.md)
-* [LICENSE](./LICENSE)
+### Node Versions
 
-## Project Resources
+We recommend using [Node Version Manager](https://github.com/nvm-sh/nvm). The `.nvmrc` file notes which Node version to build and run on, and can be set by running:
 
-| Resource                                   | Description                                                                    |
-| ------------------------------------------ | ------------------------------------------------------------------------------ |
-| [CODEOWNERS](./CODEOWNERS)                 | Outlines the project lead(s)                                                   |
-| [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) | Expected behavior for project contributors, promoting a welcoming environment |
-| [CONTRIBUTING.md](./CONTRIBUTING.md)       | Developer guide to build, test, run, access CI, chat, discuss, file issues     |
-| [GOVERNANCE.md](./GOVERNANCE.md)           | Project governance                                                             |
-| [LICENSE](./LICENSE)                       | Apache License, Version 2.0                                                    |
+```
+$> nvm use
+```
+
+### Install and Run
+
+Once your Node version is installed and set, build and run:
+
+```
+$> npm i
+$> node app.js
+```
+
+You should see output including a line similar to the following:
+
+```
+Server running on port: 3000
+```
+
+This port is configured in the environment file `.env`. Once running, HTTP requests via `curl` or the Browser may be issued to the endpoint `/events`, for instance `http://localhost:3000/events`.
